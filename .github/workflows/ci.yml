@@ -1,0 +1,27 @@
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'  # Change to 11 or 21 if needed
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: mvn clean install -DskipTests=false
+
+      - name: Run Tests
+        run: mvn test
