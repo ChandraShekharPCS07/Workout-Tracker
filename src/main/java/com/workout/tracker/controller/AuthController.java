@@ -52,8 +52,13 @@ public class AuthController {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         String token = jwtService.generateToken(userDetails);
+        AuthResponse authResponse = new AuthResponse
+                (token, userDetails.user().getId(),
+                        userDetails.getUsername(),
+                        userDetails.user().getEmail(),
+                        userDetails.user().getRole());
 
-        return ResponseEntity.ok(new AuthResponse(token));
+        return ResponseEntity.ok(authResponse);
     }
 
     @Operation(summary = "Register", description = "Create a new user account")
@@ -81,8 +86,13 @@ public class AuthController {
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
         String token = jwtService.generateToken(userDetails);
+        AuthResponse authResponse = new AuthResponse
+                (token, userDetails.user().getId(),
+                        userDetails.getUsername(),
+                        userDetails.user().getEmail(),
+                        userDetails.user().getRole());
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(token));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authResponse);
     }
 }
 

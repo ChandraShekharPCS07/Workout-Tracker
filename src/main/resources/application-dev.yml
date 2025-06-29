@@ -1,0 +1,56 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/workout_tracker
+    username: postgres
+    password: pcs
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 5
+      properties:
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: workout-app-consumer
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "*"
+
+---
+
+# ✅ Custom audit config (moved outside `spring:`)
+audit:
+  kafka:
+    topic: user-action-events
+    group-id: audit-consumer
+  persistence:
+    postgres-enabled: true
+
+---
+
+logging:
+  level:
+    org.springframework.kafka: INFO
+    org.springframework: DEBUG
+
+jwt:
+  secret: ThisIsYourSecretKeyUseLongAndSecureOne
+  expiration: 3600000 # 1 hour in milliseconds
+  issuer: tracker-app

@@ -1,5 +1,6 @@
 package com.workout.tracker.service.impl;
 
+import com.workout.tracker.dto.PagedResponse;
 import com.workout.tracker.dto.WorkoutPlanExerciseRequestDTO;
 import com.workout.tracker.dto.WorkoutPlanExerciseResponseDTO;
 import com.workout.tracker.dto.WorkoutPlanExerciseSummaryDTO;
@@ -16,11 +17,12 @@ import com.workout.tracker.repository.WorkoutPlanRepository;
 import com.workout.tracker.service.WorkoutPlanExerciseService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,14 +32,6 @@ public class WorkoutPlanExerciseServiceImpl implements WorkoutPlanExerciseServic
     private final WorkoutPlanRepository workoutPlanRepository;
     private final WorkoutPlanExerciseMapper workoutPlanExerciseMapper;
     private final ExerciseRepository exerciseRepository;
-
-    @Override
-    public List<WorkoutPlanExerciseSummaryDTO> getAllWorkoutPlanExerciseByWorkoutPlanId(String username, UUID workoutPlanId) {
-        WorkoutPlan workoutPlan = validateWorkoutPlanAccess(username, workoutPlanId);
-        return workoutPlanExerciseRepository.getAllByWorkoutPlanId(workoutPlanId).stream()
-                .map(workoutPlanExerciseMapper::toSummaryDTO)
-                .collect(Collectors.toList());
-    }
 
     @Override
     public WorkoutPlanExerciseResponseDTO getWorkoutPlanExerciseById(String username, UUID exerciseId, UUID planId) {
@@ -84,6 +78,22 @@ public class WorkoutPlanExerciseServiceImpl implements WorkoutPlanExerciseServic
         workoutPlanExerciseRepository.deleteById(exerciseId);
     }
 
+    @Override
+    public PagedResponse<WorkoutPlanExerciseSummaryDTO> listWorkoutPlanExercises(String username, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WorkoutPlanExercise> workoutPlanExercisePage = workoutPlanExerciseRepository.findByUserUsername(username, pageable);
+        Page<WorkoutPlanExerciseSummaryDTO> dtoPage = workoutPlanExercisePage.map(workoutPlanExerciseMapper::toSummaryDTO);
+        return pagedResponse(dtoPage);
+    }
+
+    @Override
+    public PagedResponse<WorkoutPlanExerciseSummaryDTO> searchWorkoutPlanExercises(String username, UUID workoutPlanId, String query, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WorkoutPlanExercise> workoutPlanExercisePage = workoutPlanExerciseRepository.searchExercises(username, workoutPlanId, query, pageable);
+        Page<WorkoutPlanExerciseSummaryDTO> dtoPage = workoutPlanExercisePage.map(workoutPlanExerciseMapper::toSummaryDTO);
+        return pagedResponse(dtoPage);
+    }
+
     // ==== Private Helpers Methods ====
 
     private WorkoutPlan validateWorkoutPlanAccess(String username, UUID workoutPlanId) {
@@ -115,5 +125,15 @@ public class WorkoutPlanExerciseServiceImpl implements WorkoutPlanExerciseServic
     private WorkoutPlan findWorkoutPlanById(UUID id) {
         return workoutPlanRepository.findById(id)
                 .orElseThrow(() -> new WorkoutPlanNotFoundException("WorkoutPlan not found"));
+    }
+
+    private PagedResponse<WorkoutPlanExerciseSummaryDTO> pagedResponse(Page<WorkoutPlanExerciseSummaryDTO> dto){
+        return new PagedResponse<>(
+                dto.getContent(),
+                dto.getNumber(),
+                dto.getSize(),
+                dto.getTotalElements(),
+                dto.getTotalPages(),
+                dto.isLast());
     }
 }

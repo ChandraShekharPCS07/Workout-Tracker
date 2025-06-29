@@ -34,7 +34,7 @@ public class ExerciseServiceImpl implements ExerciseService {
     }
 
     @Override
-    public PagedResponse<ExerciseSummaryDTO> getAllExercisesByCategory(String category, int page, int size) {
+    public PagedResponse<ExerciseSummaryDTO> getExercisesByCategory(String category, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
         Page<Exercise> exercisePage = exerciseRepository.findByCategory(category, pageable);
         Page<ExerciseSummaryDTO> dtosPage = exercisePage.map(exerciseMapper::toSummary);
@@ -42,12 +42,12 @@ public class ExerciseServiceImpl implements ExerciseService {
     }
 
     @Override
-    public PagedResponse<ExerciseSummaryDTO> getAllExercisesByMuscleGroup(String muscleGroup, int page, int size) {
+    public PagedResponse<ExerciseSummaryDTO> getExercisesByMuscleGroup(String muscleGroup, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
         Page<Exercise> exercisePage = exerciseRepository.findByMuscleGroup(muscleGroup, pageable);
         Page<ExerciseSummaryDTO> dtosPage = exercisePage.map(exerciseMapper::toSummary);
         return pagedResponse(dtosPage);
-    }
+     }
 
     @Override
     public ExerciseResponseDTO getExerciseById(UUID id) {

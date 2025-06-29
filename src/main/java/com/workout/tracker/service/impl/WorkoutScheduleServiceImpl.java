@@ -1,10 +1,7 @@
 package com.workout.tracker.service.impl;
 
 import com.workout.tracker.annotations.RateLimited;
-import com.workout.tracker.dto.WorkoutScheduleEvent;
-import com.workout.tracker.dto.WorkoutScheduleRequestDTO;
-import com.workout.tracker.dto.WorkoutScheduleResponseDTO;
-import com.workout.tracker.dto.WorkoutScheduleSummaryDTO;
+import com.workout.tracker.dto.*;
 import com.workout.tracker.exception.CustomAccessDeniedException;
 import com.workout.tracker.exception.UserNotFoundException;
 import com.workout.tracker.exception.WorkoutScheduleNotFoundException;
@@ -16,18 +13,18 @@ import com.workout.tracker.repository.WorkoutLogsRepository;
 import com.workout.tracker.repository.WorkoutPlanRepository;
 import com.workout.tracker.repository.WorkoutScheduleRepository;
 import com.workout.tracker.service.WorkoutScheduleService;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,47 +36,6 @@ public class WorkoutScheduleServiceImpl implements WorkoutScheduleService {
     private final WorkoutScheduleMapper workoutScheduleMapper;
     private final UserRepository userRepository;
     private final WorkoutLogsRepository workoutLogsRepository;
-
-    @Override
-    @Transactional(readOnly = true) // ✅ Commandment 3
-    public List<WorkoutScheduleSummaryDTO> getAllUpcomingWorkoutSchedulesByUsername(String username) {
-        // 🎯 PURPOSE: Fetch all future workouts for a user
-
-        // 🛡️ PRE-CHECK
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("Username must not be null or blank");
-        }
-
-        // 🔧 PROCESSING
-        List<WorkoutSchedule> upcomingSchedules = workoutScheduleRepository
-                .findAllByUserUsernameAndScheduledAtAfter(username, LocalDateTime.now());
-
-        // 🌈 POST-PROCESSING
-        return upcomingSchedules.stream()
-                .map(workoutScheduleMapper::toSummaryDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<WorkoutScheduleSummaryDTO> getAllCompletedWorkoutSchedulesByUsername(String username) {
-        // 🎯 PURPOSE: Fetch all past workouts for a user
-
-        // 🛡️ PRE-CHECK
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("Username must not be null or blank");
-        }
-
-        // 🔧 PROCESSING
-        List<WorkoutSchedule> completedSchedules = workoutScheduleRepository
-                .findAllByUserUsernameAndScheduledAtBefore(username, LocalDateTime.now());
-
-        // 🌈 POST-PROCESSING
-        return completedSchedules.stream()
-                .map(workoutScheduleMapper::toSummaryDTO)
-                .collect(Collectors.toList());
-    }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -129,14 +85,8 @@ public class WorkoutScheduleServiceImpl implements WorkoutScheduleService {
         WorkoutSchedule saved = workoutScheduleRepository.save(workoutSchedule);
 
         // ✅ Emit Kafka event
-        WorkoutScheduleEvent event = new WorkoutScheduleEvent();
-        event.setScheduleId(saved.getId());
-        event.setUsername(username);
-        event.setWorkoutPlanName(requestDTO.getWorkoutPlanName());
-        event.setScheduledAt(saved.getScheduledAt());
-        event.setEventType("CREATED");
-
-        kafkaEventPublisher.publishWorkoutScheduleEvent(event);
+        publishScheduleEvent(saved, username, "CREATED");
+        publishUserActionEvent(saved, username, "WORKOUT_CREATED");
 
         // 5. 🌈 POST-PROCESSING / OUTPUT
         return workoutScheduleMapper.toResponseDTO(saved); // ✅ Commandment 7
@@ -171,12 +121,9 @@ public class WorkoutScheduleServiceImpl implements WorkoutScheduleService {
         // 4. 💾 PERSISTENCE
         WorkoutSchedule saved = workoutScheduleRepository.save(updated);
 
-        WorkoutScheduleEvent event = new WorkoutScheduleEvent();
-        event.setScheduleId(saved.getId());
-        event.setUsername(username);
-        event.setWorkoutPlanName(requestDTO.getWorkoutPlanName());
-        event.setScheduledAt(saved.getScheduledAt());
-        event.setEventType("UPDATED");
+        // Kafka Events
+        publishScheduleEvent(saved, username, "UPDATED");
+        publishUserActionEvent(saved, username, "WORKOUT_UPDATED");
 
         // 5. 🌈 POST-PROCESSING / OUTPUT
         return workoutScheduleMapper.toResponseDTO(saved); // ✅ Commandment 7
@@ -218,19 +165,19 @@ public class WorkoutScheduleServiceImpl implements WorkoutScheduleService {
             UUID workoutScheduleId,
             String notes
     ) {
-        // 1. 🎯 PURPOSE
+        // 1. PURPOSE
         // Mark a workout schedule as completed with optional notes.
 
-        // 2. 🛡️ PRE-CHECKS
+        // 2. PRE-CHECKS
 
         if (workoutScheduleId == null) {
             throw new IllegalArgumentException("WorkoutSchedule ID must not be null"); // ✅ Commandment 2
         }
 
-        // 🔐 Ownership & existence check
+        // Ownership & existence check
         WorkoutSchedule workoutSchedule = checkOwnership(username, workoutScheduleId); // ✅ Commandment 17
 
-        // ⏮️ Idempotency check — if already completed, return existing
+        // Idempotency check — if already completed, return existing
         if (Status.COMPLETED.equals(workoutSchedule.getStatus())) {
             return workoutScheduleMapper.toResponseDTO(workoutSchedule); // ✅ Commandment 12
         }
@@ -249,35 +196,41 @@ public class WorkoutScheduleServiceImpl implements WorkoutScheduleService {
         WorkoutSchedule saved = workoutScheduleRepository.save(workoutSchedule);
 
         // AUTO-CREATE WORKOUT LOGS
-        List<WorkoutLogs> logs = Optional.ofNullable(saved.getWorkoutPlan())
-                .map(WorkoutPlan::getExerciseList)
-                .orElse(Collections.emptyList())
-                .stream()
-                .filter(exercisePlan -> exercisePlan.getExercise() != null) // Defensive: avoid null pointer
-                .map(exercisePlan -> {
-                    WorkoutLogs log = new WorkoutLogs();
-                    log.setWorkoutSchedule(saved);
-                    log.setExercise(exercisePlan.getExercise());
-                    log.setActualSets(exercisePlan.getSets() != null ? exercisePlan.getSets() : 0);
-                    log.setActualReps(exercisePlan.getReps() != null ? exercisePlan.getReps() : 0);
-                    log.setActualWeightKg(exercisePlan.getWeightKg() != null ? exercisePlan.getWeightKg() : 0f);
-                    log.setNotes(saved.getNotes()); // Optional: can be null or general notes
-                    return log;
-                })
-                .toList();
+        workoutLogsRepository.saveAll(generateWorkoutLogs(workoutSchedule));
 
-        workoutLogsRepository.saveAll(logs);
+        // Event Publishing
+        publishScheduleEvent(saved, username, "COMPLETED");
+        publishUserActionEvent(saved, username, "WORKOUT_COMPLETED");
 
-
-        WorkoutScheduleEvent event = new WorkoutScheduleEvent();
-        event.setScheduleId(saved.getId());
-        event.setUsername(username);
-        event.setWorkoutPlanName(saved.getWorkoutPlan().getName());
-        event.setScheduledAt(saved.getScheduledAt());
-        event.setEventType("COMPLETED");
-
-        // 5. 🌈 POST-PROCESSING / OUTPUT
+        // 5. POST-PROCESSING / OUTPUT
         return workoutScheduleMapper.toResponseDTO(saved); // ✅ Commandment 7
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<WorkoutScheduleSummaryDTO> listWorkoutSchedules(String username, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WorkoutSchedule> workoutSchedulePage = workoutScheduleRepository.findByUserUsernameOrderByCreatedAtDesc(username, pageable);
+        Page<WorkoutScheduleSummaryDTO> dtoPage = workoutSchedulePage.map(workoutScheduleMapper::toSummaryDTO);
+        return pagedResponse(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<WorkoutScheduleSummaryDTO> listWorkoutSchedulesByStatus(String username, Status status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WorkoutSchedule> workoutSchedulePage = workoutScheduleRepository.findByUserUsernameAndStatusOrderByCreatedAtDesc(username, status, pageable);
+        Page<WorkoutScheduleSummaryDTO> dtoPage = workoutSchedulePage.map(workoutScheduleMapper::toSummaryDTO);
+        return pagedResponse(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<WorkoutScheduleSummaryDTO> searchWorkoutSchedules(String username, String query, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WorkoutSchedule> workoutSchedulePage = workoutScheduleRepository.findByUserUsernameAndWorkoutPlan_NameContainingIgnoreCaseOrderByCreatedAtDesc(username, query, pageable);
+        Page<WorkoutScheduleSummaryDTO> dtoPage = workoutSchedulePage.map(workoutScheduleMapper::toSummaryDTO);
+        return pagedResponse(dtoPage);
     }
 
 
@@ -300,6 +253,56 @@ public class WorkoutScheduleServiceImpl implements WorkoutScheduleService {
         }
 
         return schedule;
+    }
+
+    private void publishScheduleEvent(WorkoutSchedule saved, String username, String type) {
+        WorkoutScheduleEvent event = new WorkoutScheduleEvent();
+        event.setScheduleId(saved.getId());
+        event.setUsername(username);
+        event.setWorkoutPlanName(saved.getWorkoutPlan().getName());
+        event.setScheduledAt(saved.getScheduledAt());
+        event.setEventType(type);
+        kafkaEventPublisher.publishWorkoutScheduleEvent(event);
+    }
+
+    private void publishUserActionEvent(WorkoutSchedule saved, String username, String type){
+        UserActionEvent userActionEvent = new UserActionEvent();
+        userActionEvent.setUsername(username);
+        userActionEvent.setActionType(type);
+        userActionEvent.setTargetId(saved.getId());
+        userActionEvent.setTargetType("WorkoutSchedule");
+        userActionEvent.setTimestamp(LocalDateTime.now());
+        userActionEvent.setMetadata(saved.getNotes());
+        kafkaEventPublisher.publishUserAction(userActionEvent);
+    }
+
+    private List<WorkoutLogs> generateWorkoutLogs(WorkoutSchedule schedule) {
+        return Optional.ofNullable(schedule.getWorkoutPlan())
+                .map(WorkoutPlan::getExerciseList)
+                .orElse(Collections.emptyList())
+                .stream()
+                .filter(exercisePlan -> exercisePlan.getExercise() != null)
+                .map(exercisePlan -> {
+                    WorkoutLogs log = new WorkoutLogs();
+                    log.setWorkoutSchedule(schedule);
+                    log.setExercise(exercisePlan.getExercise());
+                    log.setActualSets(Optional.ofNullable(exercisePlan.getSets()).orElse(0));
+                    log.setActualReps(Optional.ofNullable(exercisePlan.getReps()).orElse(0));
+                    log.setActualWeightKg(Optional.ofNullable(exercisePlan.getWeightKg()).orElse(0f));
+                    log.setNotes(schedule.getNotes());
+                    return log;
+                })
+                .toList();
+    }
+
+    private PagedResponse<WorkoutScheduleSummaryDTO> pagedResponse(Page<WorkoutScheduleSummaryDTO> dto){
+        return new PagedResponse<>(
+                dto.getContent(),
+                dto.getNumber(),
+                dto.getSize(),
+                dto.getTotalElements(),
+                dto.getTotalPages(),
+                dto.isLast());
     }
 
 

@@ -1,0 +1,24 @@
+# 🔐 application-prod.yml
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://prod-db:5432/workout_tracker
+    username: prod_user
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  kafka:
+    bootstrap-servers: kafka:9092
+
+logging:
+  level:
+    org.springframework: INFO
+    org.springframework.kafka: WARN
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 1800000 # 30 minutes
+  issuer: tracker-app

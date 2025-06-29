@@ -3,6 +3,7 @@ package com.workout.tracker.controller;
 import com.workout.tracker.dto.PagedResponse;
 import com.workout.tracker.dto.WorkoutLogsRequestDTO;
 import com.workout.tracker.dto.WorkoutLogsResponseDTO;
+import com.workout.tracker.dto.WorkoutLogsSummaryDTO;
 import com.workout.tracker.service.WorkoutLogsService;
 import com.workout.tracker.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,16 +21,16 @@ public class WorkoutLogsController {
 
     private final WorkoutLogsService workoutLogsService;
 
-    @GetMapping
-    @Operation(summary = "Get all workout logs for a user")
-    public ResponseEntity<PagedResponse<WorkoutLogsResponseDTO>> getAllWorkoutLogs(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        String username = SecurityUtils.getCurrentUsername();
-        PagedResponse<WorkoutLogsResponseDTO> response = workoutLogsService.getAllWorkoutLogs(username, page, size);
-        return ResponseEntity.ok(response);
-    }
+//    @GetMapping
+//    @Operation(summary = "Get all workout logs for a user")
+//    public ResponseEntity<PagedResponse<WorkoutLogsSummaryDTO>> getAllWorkoutLogs(
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size
+//    ) {
+//        String username = SecurityUtils.getCurrentUsername();
+//        PagedResponse<WorkoutLogsSummaryDTO> response = workoutLogsService.listWorkoutLogs(username, page, size);
+//        return ResponseEntity.ok(response);
+//    }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get a single workout log by ID")

@@ -2,6 +2,7 @@ package com.workout.tracker.mappers;
 
 import com.workout.tracker.dto.WorkoutLogsRequestDTO;
 import com.workout.tracker.dto.WorkoutLogsResponseDTO;
+import com.workout.tracker.dto.WorkoutLogsSummaryDTO;
 import com.workout.tracker.model.Exercise;
 import com.workout.tracker.model.WorkoutLogs;
 import com.workout.tracker.model.WorkoutSchedule;
@@ -24,10 +25,14 @@ public interface WorkoutLogsMapper {
     @Mapping(source = "exercise.name", target = "exerciseName")
     WorkoutLogsResponseDTO toResponseDTO(WorkoutLogs workoutLogs);
 
+    @Mapping(source = "exercise.name", target = "exerciseName")
+    WorkoutLogsSummaryDTO toSummaryDTO(WorkoutLogs workoutLogs);
+
     @Mapping(target = "id", ignore = true)
     @Mapping(source = "workoutScheduleId", target = "workoutSchedule", qualifiedByName = "mapWorkoutSchedule")
     @Mapping(source = "exerciseName", target = "exercise", qualifiedByName = "mapExercise")
     WorkoutLogs updateFromDTO(@MappingTarget WorkoutLogs workoutLogs, WorkoutLogsRequestDTO requestDTO);
+
 
     @Named("mapWorkoutSchedule")
     default WorkoutSchedule mapWorkoutSchedule(UUID id){

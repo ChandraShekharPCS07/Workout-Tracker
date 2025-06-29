@@ -1,9 +1,6 @@
 package com.workout.tracker.controller;
 
-import com.workout.tracker.dto.WorkoutPlanRequestDTO;
-import com.workout.tracker.dto.WorkoutPlanResponseDTO;
-import com.workout.tracker.dto.WorkoutPlanSummaryDTO;
-import com.workout.tracker.dto.WorkoutScheduleSummaryDTO;
+import com.workout.tracker.dto.*;
 import com.workout.tracker.service.impl.WorkoutPlanServiceImpl;
 import com.workout.tracker.util.SecurityUtils;
 import com.workout.tracker.util.StandardApiErrors;
@@ -40,10 +37,13 @@ public class WorkoutPlanController {
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = WorkoutScheduleSummaryDTO.class))))
     })
     @GetMapping
-    public ResponseEntity<List<WorkoutPlanSummaryDTO>> getAllWorkoutPlans(){
+    public ResponseEntity<PagedResponse<WorkoutPlanSummaryDTO>> getAllWorkoutPlans(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ){
         String username = SecurityUtils.getCurrentUsername();
         log.info("Fetching workout plans for user: {}", username);
-        return ResponseEntity.ok().body(workoutPlanService.getAllWorkoutPlans(username));
+        return ResponseEntity.ok().body(workoutPlanService.listUserWorkoutPlans(username, page, size));
     }
 
     @StandardApiErrors

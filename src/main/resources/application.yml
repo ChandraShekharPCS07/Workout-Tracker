@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: tracker
+  jackson:
+    serialization:
+      FAIL_ON_EMPTY_BEANS: false
+  profiles:
+    active: local
+
+# ✅ Shared config for all profiles
+server:
+  port: 8081
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    display-request-duration: true
+    try-it-out-enabled: true
+    doc-expansion: none
+    operations-sorter: alpha
+  packages-to-scan: com.workout.tracker.controller
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+

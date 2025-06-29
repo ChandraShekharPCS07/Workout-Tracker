@@ -1,8 +1,6 @@
 package com.workout.tracker.service.impl;
 
-import com.workout.tracker.dto.PagedResponse;
-import com.workout.tracker.dto.WorkoutLogsRequestDTO;
-import com.workout.tracker.dto.WorkoutLogsResponseDTO;
+import com.workout.tracker.dto.*;
 import com.workout.tracker.exception.CustomAccessDeniedException;
 import com.workout.tracker.exception.WorkoutLogsNotFoundException;
 import com.workout.tracker.mappers.WorkoutLogsMapper;
@@ -15,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -24,14 +23,6 @@ public class WorkoutLogsServiceImpl implements WorkoutLogsService {
 
     private final WorkoutLogsRepository workoutLogsRepository;
     private final WorkoutLogsMapper workoutLogsMapper;
-
-    @Override
-    public PagedResponse<WorkoutLogsResponseDTO> getAllWorkoutLogs(String username, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("workoutSchedule").ascending());
-        Page<WorkoutLogs> workoutLogsPage = workoutLogsRepository.findAllByWorkoutScheduleUserUsername(username, pageable);
-        Page<WorkoutLogsResponseDTO> dtoPage = workoutLogsPage.map(workoutLogsMapper::toResponseDTO);
-        return pagedResponse(dtoPage);
-    }
 
     @Override
     public WorkoutLogsResponseDTO getWorkoutLogById(String username, UUID workoutLogId) {
@@ -60,6 +51,77 @@ public class WorkoutLogsServiceImpl implements WorkoutLogsService {
         workoutLogsRepository.deleteById(workoutLogId);
     }
 
+//    @Override
+//    @Transactional(readOnly = true)
+//    public PagedResponse<WorkoutLogsSummaryDTO> listWorkoutLogs(String username, int page, int size) {
+//        Pageable pageable = PageRequest.of(page, size);
+//        Page<WorkoutLogs> logsPage = workoutLogsRepository.findByWorkoutScheduleUserUsernameOrderByCreatedAtDesc(username, pageable);
+//        Page<WorkoutLogsSummaryDTO> dtoPage = logsPage.map(workoutLogsMapper::toSummaryDTO);
+//        return pagedResponse(dtoPage);
+//    }
+//
+//    @Override
+//    @Transactional(readOnly = true)
+//    public PagedResponse<WorkoutLogsSummaryDTO> listWorkoutLogsBySchedule(String username, UUID workoutScheduleId, int page, int size) {
+//        if (workoutScheduleId == null) {
+//            throw new IllegalArgumentException("WorkoutSchedule ID must not be null");
+//        }
+//        Pageable pageable = PageRequest.of(page, size);
+//        Page<WorkoutLogs> logsPage = workoutLogsRepository.findByWorkoutScheduleUserUsernameAndWorkoutScheduleIdOrderByCreatedAtDesc(username, workoutScheduleId, pageable);
+//        Page<WorkoutLogsSummaryDTO> dtoPage = logsPage.map(workoutLogsMapper::toSummaryDTO);
+//        return pagedResponse(dtoPage);
+//    }
+//
+//    @Override
+//    @Transactional(readOnly = true)
+//    public PagedResponse<WorkoutLogsSummaryDTO> listWorkoutLogsByExercise(String username, UUID exerciseId, int page, int size) {
+//        if (exerciseId == null) {
+//            throw new IllegalArgumentException("Exercise ID must not be null");
+//        }
+//        Pageable pageable = PageRequest.of(page, size);
+//        Page<WorkoutLogs> logsPage = workoutLogsRepository.findByWorkoutScheduleUserUsernameAndExerciseIdOrderByCreatedAtDesc(username, exerciseId, pageable);
+//        Page<WorkoutLogsSummaryDTO> dtoPage = logsPage.map(workoutLogsMapper::toSummaryDTO);
+//        return pagedResponse(dtoPage);
+//    }
+//
+//    @Override
+//    @Transactional(readOnly = true)
+//    public PagedResponse<WorkoutLogsSummaryDTO> searchWorkoutLogs(String username, String query, int page, int size) {
+//        if (query == null || query.isBlank()) {
+//            throw new IllegalArgumentException("Search query must not be null or blank");
+//        }
+//        Pageable pageable = PageRequest.of(page, size);
+//        Page<WorkoutLogs> logsPage = workoutLogsRepository.searchByUserAndQuery(username, query, pageable);
+//        Page<WorkoutLogsSummaryDTO> dtoPage = logsPage.map(workoutLogsMapper::toSummaryDTO);
+//        return pagedResponse(dtoPage);
+//    }
+//
+//    @Override
+//    @Transactional(readOnly = true)
+//    public PagedResponse<WorkoutLogsSummaryDTO> filterWorkoutLogs(String username, WorkoutLogsFilterRequestDTO filter, int page, int size) {
+//        if (filter == null) {
+//            throw new IllegalArgumentException("Filter request must not be null");
+//        }
+//
+//        Pageable pageable = PageRequest.of(page, size);
+//        Page<WorkoutLogs> logsPage = workoutLogsRepository.filterWorkoutLogs(
+//                username,
+//                filter.getExerciseId(),
+//                filter.getWorkoutScheduleId(),
+//                filter.getStartDate(),
+//                filter.getEndDate(),
+//                filter.getMinWeight(),
+//                filter.getMaxWeight(),
+//                filter.getNotesQuery(),
+//                pageable
+//        );
+//
+//        Page<WorkoutLogsSummaryDTO> dtoPage = logsPage.map(workoutLogsMapper::toSummaryDTO);
+//        return pagedResponse(dtoPage);
+//    }
+
+
+
     private WorkoutLogs findWorkoutLogById(UUID id){
         return workoutLogsRepository.findById(id)
                 .orElseThrow(() -> new WorkoutLogsNotFoundException("Workout log not found"));
@@ -73,7 +135,7 @@ public class WorkoutLogsServiceImpl implements WorkoutLogsService {
         return workoutLogs;
     }
 
-    private PagedResponse<WorkoutLogsResponseDTO> pagedResponse(Page<WorkoutLogsResponseDTO> dto){
+    private PagedResponse<WorkoutLogsSummaryDTO> pagedResponse(Page<WorkoutLogsSummaryDTO> dto){
         return new PagedResponse<>(
                 dto.getContent(),
                 dto.getNumber(),

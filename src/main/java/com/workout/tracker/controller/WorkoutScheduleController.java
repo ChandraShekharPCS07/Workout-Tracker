@@ -1,9 +1,12 @@
 package com.workout.tracker.controller;
 
 
+import com.workout.tracker.dto.PagedResponse;
 import com.workout.tracker.dto.WorkoutScheduleRequestDTO;
 import com.workout.tracker.dto.WorkoutScheduleResponseDTO;
 import com.workout.tracker.dto.WorkoutScheduleSummaryDTO;
+import com.workout.tracker.exception.APIResponse;
+import com.workout.tracker.model.Status;
 import com.workout.tracker.service.impl.WorkoutScheduleServiceImpl;
 import com.workout.tracker.util.SecurityUtils;
 import com.workout.tracker.util.StandardApiErrors;
@@ -12,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,27 +38,59 @@ public class WorkoutScheduleController {
     private static final Logger log = LoggerFactory.getLogger(WorkoutScheduleController.class);
 
     @StandardApiErrors
-    @Operation(summary = "Get Upcoming Workout Schedules", responses = {
+    @Operation(summary = "Get Pending / Completed Workout Schedules", responses = {
             @ApiResponse(responseCode = "200", description = "Workout Schedules",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = WorkoutScheduleSummaryDTO.class))))
     })
-    @GetMapping("/upcoming")
-    public ResponseEntity<List<WorkoutScheduleSummaryDTO>> getAllUpcomingWorkoutSchedules(){
+    @GetMapping("/status")
+    public ResponseEntity<APIResponse<PagedResponse<WorkoutScheduleSummaryDTO>>> getWorkoutSchedulesByStatus(
+            @RequestParam Status status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request
+    ){
         String username = SecurityUtils.getCurrentUsername();
-        log.info("Get Upcoming Workout Schedules for User: {}", username);
-        return ResponseEntity.ok().body(workoutScheduleService.getAllUpcomingWorkoutSchedulesByUsername(username));
+        PagedResponse<WorkoutScheduleSummaryDTO> dtoPagedResponse =
+                workoutScheduleService.listWorkoutSchedulesByStatus(username, status, page, size);
+        log.info("Get {} Workout Schedules for User: {}", status.name(), username);
+        APIResponse<PagedResponse<WorkoutScheduleSummaryDTO>> response = APIResponse.success(
+                "Workout Schedules",
+                dtoPagedResponse,
+                HttpStatus.OK.value(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
     @StandardApiErrors
-    @Operation(summary = "Get Completed Workout Schedules", responses = {
+    @Operation(summary = "Get all Workout Schedules", responses = {
             @ApiResponse(responseCode = "200", description = "Workout Schedules",
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = WorkoutScheduleSummaryDTO.class))))
     })
-    @GetMapping("/completed")
-    public ResponseEntity<List<WorkoutScheduleSummaryDTO>> getAllCompletedWorkoutSchedules(){
+    @GetMapping
+    public ResponseEntity<PagedResponse<WorkoutScheduleSummaryDTO>> getAllWorkoutSchedules(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ){
         String username = SecurityUtils.getCurrentUsername();
-        log.info("Get Completed Workout Schedules for User: {}", username);
-        return ResponseEntity.ok().body(workoutScheduleService.getAllCompletedWorkoutSchedulesByUsername(username));
+        log.info("Get all Workout Schedules for User: {}", username);
+        return ResponseEntity.ok().body(workoutScheduleService.listWorkoutSchedules(username, page, size));
+    }
+
+    @StandardApiErrors
+    @Operation(summary = "Search Workout Schedules", responses = {
+            @ApiResponse(responseCode = "200", description = "Workout Schedules",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = WorkoutScheduleSummaryDTO.class))))
+    })
+    @GetMapping("/search")
+    public ResponseEntity<PagedResponse<WorkoutScheduleSummaryDTO>> getWorkoutSchedules(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ){
+        String username = SecurityUtils.getCurrentUsername();
+        log.info("Search Workout Schedules for User: {}", username);
+        return ResponseEntity.ok().body(workoutScheduleService.searchWorkoutSchedules(username, query, page, size));
     }
 
     @PatchMapping("/{id}/complete")

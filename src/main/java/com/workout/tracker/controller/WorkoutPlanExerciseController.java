@@ -1,5 +1,6 @@
 package com.workout.tracker.controller;
 
+import com.workout.tracker.dto.PagedResponse;
 import com.workout.tracker.dto.WorkoutPlanExerciseRequestDTO;
 import com.workout.tracker.dto.WorkoutPlanExerciseResponseDTO;
 import com.workout.tracker.dto.WorkoutPlanExerciseSummaryDTO;
@@ -37,11 +38,14 @@ public class WorkoutPlanExerciseController {
             @ApiResponse(responseCode = "200", description = "Exercise List",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = WorkoutPlanExerciseSummaryDTO.class))))
     })
-    @GetMapping("/all")
-    public ResponseEntity<List<WorkoutPlanExerciseSummaryDTO>> getAllWorkoutPlanExercises(@PathVariable UUID workoutPlanId){
+    @GetMapping
+    public ResponseEntity<PagedResponse<WorkoutPlanExerciseSummaryDTO>> getAllWorkoutPlanExercises(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ){
         String username = SecurityUtils.getCurrentUsername();
-        log.info("Fetching Exercise List of Workout Plan Id: {} for User {}", workoutPlanId, username);
-        return ResponseEntity.ok().body(workoutPlanExerciseService.getAllWorkoutPlanExerciseByWorkoutPlanId(username, workoutPlanId));
+        log.info("Fetching Exercise List of User {}", username);
+        return ResponseEntity.ok().body(workoutPlanExerciseService.listWorkoutPlanExercises(username, page, size));
     }
 
     @StandardApiErrors

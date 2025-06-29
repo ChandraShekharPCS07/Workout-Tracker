@@ -18,17 +18,17 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/exercise")
+@RequestMapping("/api/v1/exercises")
 public class UserExerciseController {
 
     private final ExerciseService exerciseService;
 
     @StandardApiErrors
     @Operation(summary = "Get all exercises", responses = {
-            @ApiResponse(responseCode = "200", description = "Exercise list found",
-                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ExerciseResponseDTO.class))))
+            @ApiResponse(responseCode = "200", description = "Exercise list",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ExerciseSummaryDTO.class))))
     })
-    @GetMapping("/all")
+    @GetMapping()
     public ResponseEntity<PagedResponse<ExerciseSummaryDTO>> getAllExercises(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -37,28 +37,28 @@ public class UserExerciseController {
 
     @StandardApiErrors
     @Operation(summary = "Get exercises by category", responses = {
-            @ApiResponse(responseCode = "200", description = "Exercises by category",
-                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ExerciseResponseDTO.class))))
+            @ApiResponse(responseCode = "200", description = "Exercises list by category",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ExerciseSummaryDTO.class))))
     })
-    @GetMapping("/all/category/{category}")
+    @GetMapping("/category/{category}")
     public ResponseEntity<PagedResponse<ExerciseSummaryDTO>> getAllExercisesByCategory(
             @PathVariable String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(exerciseService.getAllExercisesByCategory(category, page, size));
+        return ResponseEntity.ok(exerciseService.getExercisesByCategory(category, page, size));
     }
 
     @StandardApiErrors
     @Operation(summary = "Get exercises by muscle group", responses = {
-            @ApiResponse(responseCode = "200", description = "Exercises by muscle group",
-                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ExerciseResponseDTO.class))))
+            @ApiResponse(responseCode = "200", description = "Exercises list by muscle group",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ExerciseSummaryDTO.class))))
     })
-    @GetMapping("/all/muscle-group/{muscleGroup}")
+    @GetMapping("/muscle-group/{muscleGroup}")
     public ResponseEntity<PagedResponse<ExerciseSummaryDTO>> getAllExercisesByMuscleGroup(
             @PathVariable String muscleGroup,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(exerciseService.getAllExercisesByMuscleGroup(muscleGroup, page, size));
+        return ResponseEntity.ok(exerciseService.getExercisesByMuscleGroup(muscleGroup, page, size));
     }
 
     @StandardApiErrors
@@ -66,7 +66,7 @@ public class UserExerciseController {
             @ApiResponse(responseCode = "200", description = "Exercise found",
                     content = @Content(schema = @Schema(implementation = ExerciseResponseDTO.class)))
     })
-    @GetMapping("/all/{id}")
+    @GetMapping("/{id}")
     public ResponseEntity<ExerciseResponseDTO> getExerciseById(@PathVariable UUID id) {
         return ResponseEntity.ok(exerciseService.getExerciseById(id));
     }
